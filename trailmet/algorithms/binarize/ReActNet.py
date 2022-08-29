@@ -69,11 +69,14 @@ class HardBinaryConv(nn.Module):
 class BasicBlock1(nn.Module):
     expansion = 1
 
-    def __init__(self, inplanes, planes, stride=1, downsample=None):
+    def __init__(self, inplanes, planes, stride=1, downsample=None,binarize=True):
         super(BasicBlock1, self).__init__()
 
         self.move0 = LearnableBias(inplanes)
-        self.binary_activation = BinaryActivation()
+        if(binarize==False):
+            self.binary_activation = nn.ReLU()
+        else:
+            self.binary_activation = BinaryActivation()
         self.binary_conv = conv3x3(inplanes, planes, stride=stride)
         self.bn1 = nn.BatchNorm2d(planes)
         self.move1 = LearnableBias(planes)
@@ -104,12 +107,16 @@ class BasicBlock1(nn.Module):
 class BasicBlock2(nn.Module):
     expansion = 1
 
-    def __init__(self, inplanes, planes, stride=1, downsample=None):
+    def __init__(self, inplanes, planes, stride=1, downsample=None,binarize=True):
         super(BasicBlock2, self).__init__()
 
         self.move0 = LearnableBias(inplanes)
-        self.binary_activation = BinaryActivation()
-        self.binary_conv = HardBinaryConv(inplanes, planes, stride=stride)
+        if(binarize==False):
+            self.binary_activation = nn.ReLU()
+            self.binary_conv = conv3x3(inplanes, planes, stride=stride)
+        else:
+            self.binary_activation = BinaryActivation()
+            self.binary_conv = HardBinaryConv(inplanes, planes, stride=stride)
         self.bn1 = nn.BatchNorm2d(planes)
         self.move1 = LearnableBias(planes)
         self.prelu = nn.PReLU(planes)
@@ -137,10 +144,11 @@ class BasicBlock2(nn.Module):
         return out
 
 class ReActNet(BaseBinarize):
-    def __init__(self,teacher,model,dataloaders,**kwargs):
+    def __init__(self,teacher,model,dataloaders,num_fp,**kwargs):
         super(ReActNet, self).__init__(**kwargs)
         self.teacher = teacher
         self.model = model
+        self.num_fp=num_fp
         self.layers = model.layers_size
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.dataloaders=dataloaders
@@ -168,7 +176,7 @@ class ReActNet(BaseBinarize):
         if (len(self.layers)==3):
             new_model=ResNetCifar(BasicBlock1,self.layers,width=1,num_classes=self.num_classes,insize=self.insize)
         else:
-            new_model=ResNet(BasicBlock1,self.layers,width=1,num_classes=self.num_classes,insize=self.insize)
+            new_model=ResNet(BasicBlock1,self.layers,self.num_fp,width=1,num_classes=self.num_classes,insize=self.insize)
 
         return new_model
 

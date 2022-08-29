@@ -146,11 +146,13 @@ class ResNetCifar(BaseModel):
 
     
 class ResNet(BaseModel):
-    def __init__(self, block, layers, width=1, num_classes=1000, produce_vectors=False, init_weights=True, insize=32):
+    def __init__(self, block, layers,num_fp, width=1, num_classes=1000, produce_vectors=False, init_weights=True, insize=32):
         super(ResNet, self).__init__()
         self.layers_size = layers
         self.num_classes = num_classes
         self.insize = insize
+        self.num_fp=num_fp
+        self.count_fp=0
         self.produce_vectors = produce_vectors
         self.block_type = block.__class__.__name__
         self.inplanes = 64
@@ -184,11 +186,18 @@ class ResNet(BaseModel):
             downsample = nn.Sequential(conv_module, bn_module)
 
         layers = []
-        layers.append(block(self.inplanes, planes, stride, downsample))
+        if(self.count_fp<self.num_fp):  
+            layers.append(block(self.inplanes, planes, stride, downsample,binarize=False))
+        else:
+            layers.append(block(self.inplanes, planes, stride, downsample,binarize=True))
+
         self.inplanes = planes * block.expansion
         for i in range(1, blocks):
-            layers.append(block(self.inplanes, planes))
-
+            if(self.count_fp<self.num_fp):  
+                layers.append(block(self.inplanes, planes,binarize=False))
+            else:
+                layers.append(block(self.inplanes, planes,binarize=True))
+        self.count_fp+=1
         return nn.Sequential(*layers)
 
     def forward(self, x):
